@@ -72,6 +72,7 @@ LABEL "org.opencontainers.image.version"="$IMAGE_VERSION"
 # where it would remain forever hidden and unused in a lower layer.
 RUN dnf update -y \
     && dnf install -y \
+        crypto-policies-scripts \
         ec2-instance-connect \
         jq \
         openssh-server \

@@ -11,6 +11,9 @@ declare -r SSH_HOST_KEY_DIR="${PERSISTENT_STORAGE_BASE_DIR}/etc/ssh"
 declare -r USER_DATA="${PERSISTENT_STORAGE_BASE_DIR}/user-data"
 declare -r HOST_CERTS="/.bottlerocket/certs"
 
+#shellcheck disable=SC2155  # If not set then we'll treat it as 0
+declare -r FIPS_MODE_FLAG=$(cat '/proc/sys/crypto/fips_enabled' 2>/dev/null || echo 0)
+
 if [ ! -s "${USER_DATA}" ]; then
   log "Admin host-container user-data is empty, going to sleep forever"
   exec sleep infinity
@@ -43,6 +46,14 @@ link_host_certs() {
   done
   # Update the CA trust to pickup the new certificates
   update-ca-trust
+}
+
+# Update crypto policies to FIPS if FIPS is enabled
+update_fips_crypto_policies() {
+  [[ ${FIPS_MODE_FLAG} -eq 1 ]] && update-crypto-policies --set FIPS 2>/dev/null
+  if [[ "$(cat '/etc/crypto-policies/config')" != "FIPS" ]]; then
+    log "Failed to validate FIPS configuration"
+  fi
 }
 
 get_user_data_keys() {
@@ -207,7 +218,13 @@ fi
 
 # Generate the server keys
 mkdir -p "${SSH_HOST_KEY_DIR}"
-for key_alg in rsa ecdsa ed25519; do
+# Skip ED25519 in FIPS mode as it's not allowed
+key_algorithms=(rsa ecdsa)
+if [[ "${FIPS_MODE_FLAG}" != "1" ]]; then
+  key_algorithms+=(ed25519)
+fi
+
+for key_alg in "${key_algorithms[@]}"; do
   # If both of the keys exist, don't overwrite them
   if [[ -s "${SSH_HOST_KEY_DIR}/ssh_host_${key_alg}_key" ]] \
   && [[ -s "${SSH_HOST_KEY_DIR}/ssh_host_${key_alg}_key.pub" ]]; then
@@ -231,6 +248,8 @@ done
 install_proxy_profile
 
 enable_systemd_services
+
+update_fips_crypto_policies
 
 [[ -d "${HOST_CERTS}" ]] && link_host_certs
 
