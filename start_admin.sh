@@ -245,6 +245,14 @@ for key_alg in "${key_algorithms[@]}"; do
   fi
 done
 
+readonly host_cgroup="/.bottlerocket/rootfs/sys/fs/cgroup"
+
+if [[ $(findmnt -n -o FSTYPE "${host_cgroup}") == tmpfs ]]; then
+  # Host uses cgroup v1, so use cgroup v1 in container too
+  ln -sf "${host_cgroup}" /sys/fs/cgroup
+  log "cgroup v1 enabled in admin container to match host"
+fi
+
 install_proxy_profile
 
 enable_systemd_services
