@@ -65,11 +65,6 @@ ARG IMAGE_VERSION
 RUN test -n "$IMAGE_VERSION"
 LABEL "org.opencontainers.image.version"="$IMAGE_VERSION"
 
-# Install the custom systemd build in the same transaction as all original
-# packages to save space. For example, openssh-server pulls in systemd. This
-# dependency is best satisfied by the downstream build. Reinstalling it later
-# would result in also carrying around the original systemd in the final image
-# where it would remain forever hidden and unused in a lower layer.
 RUN dnf update -y \
     && dnf install -y \
         crypto-policies-scripts \
