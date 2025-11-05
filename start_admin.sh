@@ -264,6 +264,28 @@ update_fips_crypto_policies
 
 systemd_options=()
 
+# Set up journal linking to host journal
+readonly host_journal_socket="/run/systemd/journal/socket"
+readonly host_journal_runtime="/run/systemd/journal"
+readonly container_journal_socket="/run/systemd/journal/socket"
+readonly container_journal_runtime="/run/systemd/journal"
+
+if [[ -S "${host_journal_socket}" ]]; then
+  # Create directory and empty socket file before mounting and binding the
+  # container journal to the host bottlerocket journal
+  mkdir -p /run/systemd/journal
+  touch "${container_journal_socket}"
+  mount --bind "${host_journal_socket}" "${container_journal_socket}"
+  log "Journal socket linking to host journal enabled"
+fi
+
+# Mount host journal runtime directory for systemd service log forwarding
+if [[ -d "${host_journal_runtime}" ]]; then
+  mkdir -p "${container_journal_runtime}"
+  mount --bind "${host_journal_runtime}" "${container_journal_runtime}"
+  log "Runtime journal directory linked to host"
+fi
+
 # Persuade systemd that it's OK to run as a user manager.
 export XDG_RUNTIME_DIR="/run/user/${UID}"
 mkdir -p /run/systemd/system "${XDG_RUNTIME_DIR}"
